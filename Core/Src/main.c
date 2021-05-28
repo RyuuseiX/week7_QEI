@@ -58,7 +58,7 @@ float WantedRPM = 15;
 uint16_t Kp = 50;
 uint16_t Ki = 0;
 uint16_t Kd = 0;
-uint16_t dt = 1000;
+float dt = 0.001;
 float OutputRPM = 0;
 uint16_t PWMOut = 10000;
 float Integral = 0;	   //sum of error
@@ -94,8 +94,8 @@ float EncoderVelocity_Update();
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	uint16_t Ki_dt = Ki*dt;
-	uint16_t Kd_dt = Kd/dt;
+	float Ki_dt = Ki*dt;
+	float Kd_dt = Kd/dt;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -137,11 +137,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	if (micros() - TimeOutputLoop >= dt)//uS
+	if (micros() - TimeOutputLoop >= 1000)//uS
 			{
 			TimeOutputLoop = micros();
 
-			EncoderVel = (EncoderVel * 99 + EncoderVelocity_Update()) / 100.0;
+			EncoderVel = (EncoderVel * 9 + EncoderVelocity_Update()) / 10.0;
 			OutputRPM = (EncoderVel*60)/PulsePerRound;
 
   			Error = WantedRPM - OutputRPM;
@@ -153,18 +153,16 @@ int main(void)
 
   			if (PWMOut < 0)
 			{
-  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, -PWMOut);       //AIN1
-  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);  //AIN2
+  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);        //AIN1
+  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, -PWMOut);  //AIN2
 			}
 
 			else if (PWMOut >= 0)
 			{
-  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);  //AIN1
-  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, PWMOut);       //AIN2
+  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, PWMOut);  //AIN1
+  				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);       //AIN2
 			}
 //   */
-
-
 
 		}
 //  */
@@ -364,7 +362,6 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 0;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
