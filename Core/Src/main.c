@@ -47,20 +47,24 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint64_t _micros 	= 0;
-int   PWMOut 		= 0;
-float EncoderVel 		= 0;
-float Velocity_Motor 	= 0;
-float Velocity_Desired 	= 0;
-float Velocity_Error  	= 0;
-float Velocity_Error_Previous  	= 0;
-float Velocity_Error_Sum  		= 0;
+uint64_t _micros = 0;
+float EncoderVel = 0;  // pulse per sec
+uint64_t TimeOutputLoop = 0;
+float PulsePerRound = 3072;
 
-uint64_t Timestamp_Encoder = 0;
+//control
+float Error = 0;
+float WantedRPM = 15;
+uint16_t Kp = 200;
+uint16_t Ki = 0;
+uint16_t Kd = 0;
+float dt = 0.001;
+float OutputRPM = 0;
+int16_t PWMOut = 10000;
+float Integral = 0;	   //sum of error
+float Diff = 0;        //error difference
+float Prev_Error = 0;  //last error
 
-float K_P	= 0;
-float K_I	= 0;
-float K_D   = 0;
 
 /* USER CODE END PV */
 
@@ -74,8 +78,7 @@ static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t micros();
 float EncoderVelocity_Update();
-void PID_Control();
-void MotorDrive();
+
 
 /* USER CODE END PFP */
 
@@ -119,9 +122,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim2);
 	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+	//Start TIM3
 	HAL_TIM_Base_Start(&htim3);
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);  // start AIN1
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);  // start AIN2
 
   /* USER CODE END 2 */
 
@@ -132,16 +136,38 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		if (micros() - Timestamp_Encoder >= 1000) //1000us = 0.001s = 1kHz
+
+	if (micros() - TimeOutputLoop >= 1000)//uS
 		{
-			Timestamp_Encoder = micros();
-			EncoderVel = (EncoderVel * 99 + EncoderVelocity_Update()) / 100.0;  //Add LPF? (Low Pass Filter)
+			float Ki_dt = Ki*dt;
+			float Kd_dt = Kd/dt;
+			TimeOutputLoop = micros();
 
-			Velocity_Motor = EncoderVel * 60 / 3072.0; //  pulse/s -> RPM   (1/4 * 1/12 * 1/64)
+			EncoderVel = (EncoderVel*99 + EncoderVelocity_Update()) / 100.0;
+			OutputRPM = (EncoderVel*60)/PulsePerRound;
 
-			PID_Control();
-			MotorDrive();
+			Error = WantedRPM - OutputRPM;
+			Integral = Integral + Error;
+			Diff = Error - Prev_Error;
+			Prev_Error = Error;
+
+			PWMOut = (Kp*Error) + (Ki_dt*Integral) + (Kd_dt*Diff);
+
+			if (PWMOut < 0)
+			{
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);        //AIN1
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, -PWMOut);  //AIN2
+			}
+
+			else if (PWMOut >= 0)
+			{
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, PWMOut);  //AIN1
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);       //AIN2
+			}
+//   */
+
 		}
+//  */
 
 	}
   /* USER CODE END 3 */
@@ -433,8 +459,8 @@ float EncoderVelocity_Update()
 	int32_t EncoderPositionDiff;
 	uint64_t EncoderTimeDiff;
 
-	EncoderTimeDiff = EncoderNowTimestamp - EncoderLastTimestamp;   //dt
-	EncoderPositionDiff = EncoderNowPosition - EncoderLastPosition; //dp
+	EncoderTimeDiff = EncoderNowTimestamp - EncoderLastTimestamp;
+	EncoderPositionDiff = EncoderNowPosition - EncoderLastPosition;
 
 	//compensate overflow and underflow
 	if (EncoderPositionDiff >= MAX_SUBPOSITION_OVERFLOW)
@@ -466,33 +492,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 uint64_t micros()
 {
 	return _micros + htim2.Instance->CNT;
-}
-
-void PID_Control()
-{
-	Velocity_Error = Velocity_Desired - Velocity_Motor;
-
-	float dt = 0.001;
-	float derivative = (Velocity_Error - Velocity_Error_Previous)/dt;
-	Velocity_Error_Sum += (Velocity_Error * dt);
-
-	PWMOut = (K_P * Velocity_Error) + (K_I * Velocity_Error_Sum) + (K_D * derivative);
-
-	Velocity_Error_Previous = Velocity_Error;
-}
-
-void MotorDrive()
-{
-	if(PWMOut >= 0)
-	{
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, PWMOut);
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
-	}
-	else
-	{
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, -PWMOut);
-	}
 }
 /* USER CODE END 4 */
 

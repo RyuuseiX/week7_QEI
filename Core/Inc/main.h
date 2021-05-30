@@ -70,6 +70,8 @@ void Error_Handler(void);
 #define LD2_GPIO_Port GPIOA
 #define AIN1_Pin GPIO_PIN_6
 #define AIN1_GPIO_Port GPIOA
+#define AIN2_Pin GPIO_PIN_7
+#define AIN2_GPIO_Port GPIOA
 #define Encoder_A_Pin GPIO_PIN_8
 #define Encoder_A_GPIO_Port GPIOA
 #define Encoder_B_Pin GPIO_PIN_9
