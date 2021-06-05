@@ -55,9 +55,9 @@ float PulsePerRound = 3072;
 //control
 float Error = 0;
 float WantedRPM = 0;
-float Kp = 0;  //400
-float Ki = 0;  //400
-float Kd = 0;  //2
+float Kp = 0;  //50
+float Ki = 0;  //0.2
+float Kd = 0;  //5
 float dt = 0.001;
 float OutputRPM = 0;
 int16_t PWMOut = 10000;
