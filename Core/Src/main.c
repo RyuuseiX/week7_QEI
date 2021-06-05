@@ -54,10 +54,10 @@ float PulsePerRound = 3072;
 
 //control
 float Error = 0;
-float WantedRPM = 15;
-uint16_t Kp = 200;
-uint16_t Ki = 0;
-uint16_t Kd = 0;
+float WantedRPM = 0;
+float Kp = 0;  //400
+float Ki = 0;  //400
+float Kd = 0;  //2
 float dt = 0.001;
 float OutputRPM = 0;
 int16_t PWMOut = 10000;
@@ -139,8 +139,7 @@ int main(void)
 
 	if (micros() - TimeOutputLoop >= 1000)//uS
 		{
-			float Ki_dt = Ki*dt;
-			float Kd_dt = Kd/dt;
+
 			TimeOutputLoop = micros();
 
 			EncoderVel = (EncoderVel*99 + EncoderVelocity_Update()) / 100.0;
@@ -151,7 +150,7 @@ int main(void)
 			Diff = Error - Prev_Error;
 			Prev_Error = Error;
 
-			PWMOut = (Kp*Error) + (Ki_dt*Integral) + (Kd_dt*Diff);
+			PWMOut = (Kp*Error) + (Ki*Integral) + (Kd*Diff);
 
 			if (PWMOut < 0)
 			{
